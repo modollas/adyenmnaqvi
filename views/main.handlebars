@@ -1,0 +1,82 @@
+<div>
+    <div id="dropin-container"></div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"
+    integrity="sha256-4+XzXVhsDmqanXGHaHvgh1gMQKX40OUvDEBTu8JcmNs=" crossorigin="anonymous"></script>
+
+<script>
+    var data = "{{data}}"
+    data = JSON.parse(data.replace(/&quot;/g, '"'));
+    console.log(data)
+
+    var host = window.location.host
+
+    const configuration = {
+        paymentMethodsResponse: data, // The `/paymentMethods` response from the server.
+        clientKey: "pub.v2.8115650120946270.aHR0cHM6Ly9pbnRlbnNlLXdhdGVycy04Nzk1NS5oZXJva3VhcHAuY29t.5FHI8zoyeMpAVX3LT6qTZQDCKSYKF0xy6foAp39rc7o", // Web Drop-in versions before 3.10.1 use originKey instead of clientKey.
+        locale: "en-US",
+        environment: "test",
+        onSubmit: (state, dropin) => {
+            var xhr = new XMLHttpRequest();
+            xhr.open("POST", "https://" + host + "/payment", true);
+            xhr.setRequestHeader('Content-Type', 'application/json');
+            xhr.setRequestHeader('Access-Control-Allow-Origin', '*');
+            xhr.send(JSON.stringify({
+                data: state.data
+            }));
+
+            xhr.onload = () => {
+                response = JSON.parse(xhr.response)
+                console.log(response)
+                if (response.action) {
+                    // Drop-in handles the action object from the /payments response
+                    dropin.handleAction(response.action);
+                } else {
+                    // Your function to show the final result to the shopper
+                    getReq = new XMLHttpRequest();
+                    xhr.open("GET", "https://" + host + "/checkout", true);
+                    xhr.setRequestHeader('Content-Type', 'application/json');
+                    xhr.setRequestHeader('Access-Control-Allow-Origin', '*');
+                    xhr.send()
+                }
+            }
+
+        },
+        onAdditionalDetails: (state, dropin) => {
+            // Your function calling your server to make a `/payments/details` request
+            var xhr = new XMLHttpRequest();
+            xhr.open("POST", "https://" + host + "/payment/details", true);
+            xhr.setRequestHeader('Content-Type', 'application/json');
+            xhr.setRequestHeader('Access-Control-Allow-Origin', '*');
+            xhr.send(JSON.stringify({
+                data: state.data
+            }));
+
+            xhr.onload = () => {
+                response = JSON.parse(xhr.response)
+                if (response.action) {
+                    // Drop-in handles the action object from the /payments response
+                    dropin.handleAction(response.action);
+                } else {
+                    // Your function to show the final result to the shopper
+                    document.getElementById("dropin-container").innerHTML = JSON.stringify({ "msg": "Payment Processed", "data": response })
+                }
+            }
+        },
+        paymentMethodsConfiguration: {
+            card: { // Example optional configuration for Cards
+                hasHolderName: true,
+                holderNameRequired: true,
+                enableStoreDetails: true,
+                hideCVC: false, // Change this to true to hide the CVC field for stored cards
+                name: 'Credit or debit card'
+            }
+        }
+    };
+
+    const checkout = new AdyenCheckout(configuration);
+    const dropin = checkout.create('dropin').mount('#dropin-container');
+
+
+</script>
